@@ -2,7 +2,9 @@
 
 # Function given by the exercise ----------------------------------
 
-def mspec(samples, winlen = 400, winshift = 200, preempcoeff=0.97, nfft=512, samplingrate=20000)
+import numpy as np
+
+def mspec(samples, winlen = 400, winshift = 200, preempcoeff=0.97, nfft=512, samplingrate=20000):
     """Computes Mel Filterbank features.
 
     Args:
@@ -55,6 +57,13 @@ def enframe(samples, winlen, winshift):
         numpy array [N x winlen], where N is the number of windows that fit
         in the input signal
     """
+    # take the samples, copy them in columns in the matrix, aranged into columns, for every window we want to consider have a column in this matrix
+    # and then we can apply the subsequence processing to each column of this representation
+    N = (len(samples) - winlen + winshift)/winshift
+    frames = np.zeros((N, winlen))
+    for frame in range(0, N):
+        pass
+
     
 def preemp(input, p=0.97):
     """
