@@ -3,6 +3,7 @@
 # Function given by the exercise ----------------------------------
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 def mspec(samples, winlen = 400, winshift = 200, preempcoeff=0.97, nfft=512, samplingrate=20000):
     """Computes Mel Filterbank features.
@@ -47,6 +48,7 @@ def mfcc(samples, winlen = 400, winshift = 200, preempcoeff=0.97, nfft=512, ncep
 # Functions to be implemented ----------------------------------
 
 def enframe(samples, winlen, winshift):
+    print("samples.size = ", samples.size)
     """
     Slices the input samples into overlapping windows.
 
@@ -59,11 +61,26 @@ def enframe(samples, winlen, winshift):
     """
     # take the samples, copy them in columns in the matrix, aranged into columns, for every window we want to consider have a column in this matrix
     # and then we can apply the subsequence processing to each column of this representation
-    N = (len(samples) - winlen + winshift)/winshift
-    frames = np.zeros((N, winlen))
-    for frame in range(0, N):
-        pass
 
+    signal_length = len(samples)
+
+    # create numpy array [N x winlen], where N is the number of windows that fit in the input signal
+    
+    N = int(np.ceil((signal_length - winlen + winshift)/winshift ))
+    total_rows = N - 1
+    i = 0
+    frame_matrix = np.zeros((total_rows, winlen))
+    for row in range(0, total_rows):   # Row indeces go from 0 to 91 (tot 92)
+        for col in range(0, winlen):   # Col indeces go from 0 to 399 (tot 400)
+
+            frame_matrix[row][col] = samples[i]
+            i += 1
+            if i == signal_length - winlen: # last window reached
+                break
+        i -= winshift
+    
+    plt.pcolormesh(frame_matrix)
+    plt.show()
     
 def preemp(input, p=0.97):
     """
@@ -149,3 +166,24 @@ def dtw(x, y, dist):
 
     Note that you only need to define the first output for this exercise.
     """
+
+
+def main():
+    example = np.load('lab1_example.npz', allow_pickle=True)['example'].item()
+    samplingRate = example['samplingrate']
+
+    # Desired window length in time: 20 ms = 20 * 10^-3 s
+    # Desired shift length in time: 10 ms =  10 * 10^-3 s
+    # Sampling rate = 20 000 samples/s
+    # 20 milliseconds in samples:  20 * 10^-3 s * 20 000 samples/s = 400 samples
+    # 10 milliseconds in samples:  10 * 10^-3 s * 20 000 samples/s = 200 samples
+
+    enframe(example['samples'], 400, 200)
+
+    plt.pcolormesh(example['frames'])
+    plt.show()
+    
+
+
+
+main()
