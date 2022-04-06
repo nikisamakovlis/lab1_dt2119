@@ -4,6 +4,8 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.signal import lfilter
+from scipy.signal.windows import hamming
 
 def mspec(samples, winlen = 400, winshift = 200, preempcoeff=0.97, nfft=512, samplingrate=20000):
     """Computes Mel Filterbank features.
@@ -48,7 +50,7 @@ def mfcc(samples, winlen = 400, winshift = 200, preempcoeff=0.97, nfft=512, ncep
 # Functions to be implemented ----------------------------------
 
 def enframe(samples, winlen, winshift):
-    print("samples.size = ", samples.size)
+    
     """
     Slices the input samples into overlapping windows.
 
@@ -78,11 +80,12 @@ def enframe(samples, winlen, winshift):
             if i == signal_length - winlen: # last window reached
                 break
         i -= winshift
+    return frame_matrix
+    #print(frame_matrix.shape)
+    #plt.pcolormesh(frame_matrix)
+    #plt.show()
     
-    plt.pcolormesh(frame_matrix)
-    plt.show()
-    
-def preemp(input, p=0.97):
+def preemp(matrix, p=0.97):
     """
     Pre-emphasis filter.
 
@@ -96,7 +99,18 @@ def preemp(input, p=0.97):
     Note (you can use the function lfilter from scipy.signal)
     """
 
-def windowing(input):
+    preemp_matrix = np.zeros(matrix.shape)
+
+    a = [1]
+    b = [1, -p]
+    for i in range(len(matrix)):
+        preemp_matrix[i] = lfilter(b, a, matrix[i])
+
+    #plt.pcolormesh(preemp_matrix)
+    #plt.show()
+    return preemp_matrix
+
+def windowing(matrix):
     """
     Applies hamming window to the input frames.
 
@@ -104,10 +118,28 @@ def windowing(input):
         input: array of speech samples [N x M] where N is the number of frames and
                M the samples per frame
     Output:
-        array of windoed speech samples [N x M]
+        array of windowed speech samples [N x M]
     Note (you can use the function hamming from scipy.signal, include the sym=0 option
     if you want to get the same results as in the example)
     """
+    
+    # define hamming window 
+    window = hamming(len(matrix[0]), sym=False)
+    print(window.size)
+    
+    windowed_matrix = np.zeros(matrix.shape)
+
+    for i in range(len(matrix)):
+        windowed_matrix[i] = matrix[i] * window
+
+    plt.pcolormesh(matrix)
+    plt.show()
+
+    plt.pcolormesh(windowed_matrix)
+    plt.show()
+
+    return windowed_matrix
+
 
 def powerSpectrum(input, nfft):
     """
@@ -178,12 +210,12 @@ def main():
     # 20 milliseconds in samples:  20 * 10^-3 s * 20 000 samples/s = 400 samples
     # 10 milliseconds in samples:  10 * 10^-3 s * 20 000 samples/s = 200 samples
 
-    enframe(example['samples'], 400, 200)
+    enframed = enframe(example['samples'], 400, 200)  # example['samples'].shape = (18432,)
+    preemped = preemp(enframed)
 
-    plt.pcolormesh(example['frames'])
+    windowing(preemped)
+
+    plt.pcolormesh(example['windowed'])
     plt.show()
-    
-
-
 
 main()
