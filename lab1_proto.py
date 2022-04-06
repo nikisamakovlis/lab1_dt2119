@@ -6,6 +6,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import lfilter
 from scipy.signal.windows import hamming
+from scipy.fftpack import fft
+from scipy.fftpack.realtransforms import dct
+from lab1_tools import *
 
 def mspec(samples, winlen = 400, winshift = 200, preempcoeff=0.97, nfft=512, samplingrate=20000):
     """Computes Mel Filterbank features.
@@ -132,16 +135,16 @@ def windowing(matrix):
     for i in range(len(matrix)):
         windowed_matrix[i] = matrix[i] * window
 
-    plt.pcolormesh(matrix)
-    plt.show()
+    #plt.pcolormesh(matrix)
+    #plt.show()
 
-    plt.pcolormesh(windowed_matrix)
-    plt.show()
+    #plt.pcolormesh(windowed_matrix)
+    #plt.show()
 
     return windowed_matrix
 
 
-def powerSpectrum(input, nfft):
+def powerSpectrum(matrix, nfft):
     """
     Calculates the power spectrum of the input signal, that is the square of the modulus of the FFT
 
@@ -153,8 +156,18 @@ def powerSpectrum(input, nfft):
         array of power spectra [N x nfft]
     Note: you can use the function fft from scipy.fftpack
     """
+    fft_matrix = np.zeros((len(matrix), nfft))
 
-def logMelSpectrum(input, samplingrate):
+    for i in range(len(matrix)):
+        fft_matrix[i] = abs(fft(matrix[i], n = nfft))**2
+    
+    #plt.pcolormesh(fft_matrix)
+    #plt.show()
+    return fft_matrix
+    
+    
+
+def logMelSpectrum(matrix, samplingrate):
     """
     Calculates the log output of a Mel filterbank when the input is the power spectrum
 
@@ -168,6 +181,20 @@ def logMelSpectrum(input, samplingrate):
     Note: use the trfbank function provided in lab1_tools.py to calculate the filterbank shapes and
           nmelfilters
     """
+    nfft = len(matrix[0])
+    fbank = trfbank(samplingrate, nfft)
+
+    # plot the 40 filters of in the bank
+    #for i in range(len(fbank)):
+    #    plt.plot(fbank[i])
+    #plt.show()
+
+    mel_matrix = np.log(matrix @ fbank.T)
+    #plt.pcolormesh(mel_matrix)
+    #plt.show()
+
+    return mel_matrix
+
 
 def cepstrum(input, nceps):
     """
@@ -213,9 +240,13 @@ def main():
     enframed = enframe(example['samples'], 400, 200)  # example['samples'].shape = (18432,)
     preemped = preemp(enframed)
 
-    windowing(preemped)
+    windowed = windowing(preemped)
 
-    plt.pcolormesh(example['windowed'])
-    plt.show()
+    transformed = powerSpectrum(windowed, 512)
+
+    mel_speced = logMelSpectrum(transformed, samplingRate)
+
+    #plt.pcolormesh(example['mspec'])
+    #plt.show()
 
 main()
