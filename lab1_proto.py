@@ -128,7 +128,6 @@ def windowing(matrix):
     
     # define hamming window 
     window = hamming(len(matrix[0]), sym=False)
-    print(window.size)
     
     windowed_matrix = np.zeros(matrix.shape)
 
@@ -196,7 +195,7 @@ def logMelSpectrum(matrix, samplingrate):
     return mel_matrix
 
 
-def cepstrum(input, nceps):
+def cepstrum(matrix, nceps):
     """
     Calulates Cepstral coefficients from mel spectrum applying Discrete Cosine Transform
 
@@ -208,6 +207,18 @@ def cepstrum(input, nceps):
         array of Cepstral coefficients [N x nceps]
     Note: you can use the function dct from scipy.fftpack.realtransforms
     """
+
+    dct_matrix = np.zeros((len(matrix), nceps))
+
+    for i in range(len(matrix)):
+        dct_temp = dct(matrix[i])
+        dct_matrix[i] = dct_temp[:nceps] # selecting the 13 first coefficients from the dct results
+    
+    ceps_matrix = lifter(dct_matrix)
+    
+    return ceps_matrix
+    #plt.pcolormesh(ceps_matrix)
+    #plt.show()
 
 def dtw(x, y, dist):
     """Dynamic Time Warping.
@@ -226,7 +237,7 @@ def dtw(x, y, dist):
     Note that you only need to define the first output for this exercise.
     """
 
-
+'''
 def main():
     example = np.load('lab1_example.npz', allow_pickle=True)['example'].item()
     samplingRate = example['samplingrate']
@@ -246,7 +257,42 @@ def main():
 
     mel_speced = logMelSpectrum(transformed, samplingRate)
 
-    #plt.pcolormesh(example['mspec'])
-    #plt.show()
+    cepstrum(mel_speced, 13)
+
+    plt.pcolormesh(example['lmfcc'])
+    plt.show()
+
+'''
+
+def mfcc(input_signal):
+
+    enframed = enframe(input_signal, 400, 200) 
+
+    preemped = preemp(enframed)
+
+    windowed = windowing(preemped)
+
+    transformed = powerSpectrum(windowed, 512)
+
+    mel_speced = logMelSpectrum(transformed, 20000)
+
+    return cepstrum(mel_speced, 13)
+
+
+def main():
+    data = np.load('lab1_data.npz', allow_pickle=True)['data']
+ 
+    concatenation = np.zeros((1,13))
+    for utterance in data:
+    
+        mfcc_temp = mfcc(utterance['samples'])
+     
+        concatenation = np.vstack((concatenation, mfcc_temp))
+    
+    big_feature_array = np.delete(concatenation, (0), axis=0)   # remove first row of zeros
+    plt.pcolormesh(big_feature_array)
+    plt.show()
+        
+        
 
 main()
