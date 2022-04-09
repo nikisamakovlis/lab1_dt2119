@@ -4,10 +4,13 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
 from scipy.signal import lfilter
 from scipy.signal.windows import hamming
 from scipy.fftpack import fft
 from scipy.fftpack.realtransforms import dct
+from sklearn.mixture import GaussianMixture
 from lab1_tools import *
 
 def mspec(samples, winlen = 400, winshift = 200, preempcoeff=0.97, nfft=512, samplingrate=20000):
@@ -264,9 +267,25 @@ def main():
 
 '''
 
-def mfcc(input_signal):
+def up_until_mel(utterance, mel_concatenation):
 
-    enframed = enframe(input_signal, 400, 200) 
+    enframed = enframe(utterance, 400, 200) 
+
+    preemped = preemp(enframed)
+
+    windowed = windowing(preemped)
+
+    transformed = powerSpectrum(windowed, 512)
+
+    mel_speced = logMelSpectrum(transformed, 20000)
+
+    mel_concatenation = np.vstack((mel_concatenation, mel_speced))
+
+    return mel_concatenation
+
+def mfcc(utterance):
+
+    enframed = enframe(utterance, 400, 200) 
 
     preemped = preemp(enframed)
 
@@ -278,20 +297,109 @@ def mfcc(input_signal):
 
     return cepstrum(mel_speced, 13)
 
+def gmm_cluster(feature_matrix, data):
+
+    # 4     ->  "seven" MAN     A
+    # 8     ->  "seven" MAN     B
+    # 16    ->  "seven" WOMAN   A
+    # 32    ->  "seven" WOMAN   B
+    component_sizes = [4, 8, 16, 32]
+
+    
+    for component_size in component_sizes:
+        gm = GaussianMixture(n_components = component_size, covariance_type="diag").fit(feature_matrix)
+
+        seven_utterances = data[[16, 17, 38, 39]]
+        
+        class_labels = []
+     
+        for utterance in seven_utterances:
+            test_data = mfcc(utterance['samples'])
+            posterior = gm.predict_proba(test_data)
+            print(posterior)
+            print(posterior.shape)
+            #predicted_label = gm.predict(test_data)
+            #print(predicted_label)
+            #print(predicted_label.shape)
+            #class_labels.append(predicted_label)
+            
+            
+            plt.plot(posterior)
+            gender = utterance["gender"]
+            repetition = utterance["repetition"]
+            plt.title(f'Posterior with {component_size} components for utterance {gender} and repetition {repetition}')
+            plt.show()
+            
+        
+        plt.plot(class_labels[0], label="man")
+        plt.plot(class_labels[2], label="woman")
+        plt.legend()
+        plt.show()
+
+        
+
+
+
+        
+
+            
+        
 
 def main():
     data = np.load('lab1_data.npz', allow_pickle=True)['data']
+    example = np.load('lab1_example.npz', allow_pickle=True)['example'].item()
  
     concatenation = np.zeros((1,13))
+    mel_concatenation = np.zeros((1,40))
     for utterance in data:
-    
+        
         mfcc_temp = mfcc(utterance['samples'])
-     
+    
         concatenation = np.vstack((concatenation, mfcc_temp))
+        mel_concatenation = up_until_mel(utterance['samples'], mel_concatenation)
+
     
     big_feature_array = np.delete(concatenation, (0), axis=0)   # remove first row of zeros
-    plt.pcolormesh(big_feature_array)
-    plt.show()
+
+    #pd_big_feature_array = pd.DataFrame(big_feature_array)
+    #correlation_matrix = pd_big_feature_array.corr()
+
+    big_mel_array = np.delete(mel_concatenation, (0), axis=0)
+    #pd_big_mel_array = pd.DataFrame(big_mel_array)
+    #mel_correlation_matrix = pd_big_mel_array.corr()
+
+
+
+    gmm_cluster(big_feature_array, data)    
+    
+   
+
+    #print(correlation_matrix)
+
+    #fig, ax = plt.subplots()
+    #heatmap = ax.pcolor(correlation_matrix, cmap=plt.cm.Blues)
+    #plt.show()
+
+    #fig, ax = plt.subplots()
+    #heatmap = ax.pcolor(mel_correlation_matrix, cmap=plt.cm.Blues)
+    #plt.show()
+
+    #plt.pcolormesh(correlation_matrix)
+    #plt.show()
+
+    #sns.heatmap(correlation_matrix, annot=False, cmap=plt.cm.Reds)
+    #plt.show()
+
+    #sns.heatmap(mel_correlation_matrix, annot=False, cmap=plt.cm.Reds)
+    #plt.show()
+
+    #plt.pcolormesh(big_feature_array)
+    #plt.show()
+
+    #plt.pcolormesh(example['mspec'])
+    #plt.show()
+
+
         
         
 
