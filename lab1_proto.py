@@ -10,6 +10,7 @@ from scipy.signal import lfilter
 from scipy.signal.windows import hamming
 from scipy.fftpack import fft
 from scipy.fftpack.realtransforms import dct
+from scipy.spatial.distance import euclidean
 from sklearn.mixture import GaussianMixture
 from lab1_tools import *
 
@@ -223,7 +224,30 @@ def cepstrum(matrix, nceps):
     #plt.pcolormesh(ceps_matrix)
     #plt.show()
 
-def dtw(x, y, dist):
+def euclidian_distances(x, y):
+    '''
+    input: x,y are utterences (not gone through mfcc)
+    ouptut: matrix with euclidian distances 
+
+    '''
+
+    x_coefficient_matrix = mfcc(x)
+    N = len(x_coefficient_matrix)
+
+    y_coefficient_matrix = mfcc(y)
+    M = len(y_coefficient_matrix)
+
+    local_euclidean_matrix = np.zeros((N,M))
+
+    for n in range(N):
+        for m in range(M):
+            local_euclidean_matrix[n, m] = euclidean(x_coefficient_matrix[n, :], y_coefficient_matrix[m, :])
+
+    return local_euclidean_matrix
+
+
+
+def dtw(local_euclidean_matrix, dist):
     """Dynamic Time Warping.
 
     Args:
@@ -239,7 +263,12 @@ def dtw(x, y, dist):
 
     Note that you only need to define the first output for this exercise.
     """
-
+    N = len(local_euclidean_matrix)
+    M = len(local_euclidean_matrix[0])
+    AccD = np.zeros((N, M))
+    for n in range(N):
+        for m in range(M):
+            AccD[n, m] = local_euclidean_matrix[n, m] + min(AccD[n-1, m], AccD[n-1, m-1], AccD[n, m-1])
 '''
 def main():
     example = np.load('lab1_example.npz', allow_pickle=True)['example'].item()
@@ -295,46 +324,62 @@ def mfcc(utterance):
 
     mel_speced = logMelSpectrum(transformed, 20000)
 
-    return cepstrum(mel_speced, 13)
+    cepstrum_coefficient_matrix = cepstrum(mel_speced, 13) # output is a N x 13
+
+    return cepstrum_coefficient_matrix
 
 def gmm_cluster(feature_matrix, data):
 
-    # 4     ->  "seven" MAN     A
-    # 8     ->  "seven" MAN     B
-    # 16    ->  "seven" WOMAN   A
-    # 32    ->  "seven" WOMAN   B
+    
     component_sizes = [4, 8, 16, 32]
+    #component_sizes = [4]
 
     
     for component_size in component_sizes:
-        gm = GaussianMixture(n_components = component_size, covariance_type="diag").fit(feature_matrix)
-
+        gm = GaussianMixture(n_components = component_size).fit(feature_matrix)
+        
+        # 16    ->  "seven" MAN     A
+        # 17    ->  "seven" MAN     B
+        # 38    ->  "seven" WOMAN   A
+        # 39    ->  "seven" WOMAN   B
         seven_utterances = data[[16, 17, 38, 39]]
         
         class_labels = []
-     
+        posterior_list = []
+
+        fig, axs = plt.subplots(2, 2)
+        
+
         for utterance in seven_utterances:
             test_data = mfcc(utterance['samples'])
             posterior = gm.predict_proba(test_data)
-            print(posterior)
-            print(posterior.shape)
+            posterior_list.append(posterior)
+
             #predicted_label = gm.predict(test_data)
             #print(predicted_label)
             #print(predicted_label.shape)
             #class_labels.append(predicted_label)
             
             
-            plt.plot(posterior)
-            gender = utterance["gender"]
-            repetition = utterance["repetition"]
-            plt.title(f'Posterior with {component_size} components for utterance {gender} and repetition {repetition}')
-            plt.show()
-            
+            #plt.plot(posterior)
+            #gender = utterance["gender"]
+            #repetition = utterance["repetition"]
+            #plt.title(f'Posterior with {component_size} components for #utterance {gender} and repetition {repetition}')
+            #plt.show()
+        
+        '''
+        axs[0, 0].pcolormesh(posterior_list[0])
+        axs[0, 1].pcolormesh(posterior_list[1])
+        axs[1, 0].pcolormesh(posterior_list[2])
+        axs[1, 1].pcolormesh(posterior_list[3])
+
+        plt.show()
         
         plt.plot(class_labels[0], label="man")
         plt.plot(class_labels[2], label="woman")
         plt.legend()
         plt.show()
+        '''
 
         
 
@@ -370,7 +415,11 @@ def main():
 
 
 
-    gmm_cluster(big_feature_array, data)    
+    #gmm_cluster(big_feature_array, data)    
+
+    local_euclidian = euclidian_distances(data[16]["samples"], data[17]["samples"])
+
+    dtw(local_euclidian)
     
    
 
