@@ -11,6 +11,8 @@ from scipy.signal.windows import hamming
 from scipy.fftpack import fft
 from scipy.fftpack.realtransforms import dct
 from scipy.spatial.distance import euclidean
+from scipy.cluster.hierarchy import linkage, dendrogram
+from sklearn.metrics import euclidean_distances
 from sklearn.mixture import GaussianMixture
 from lab1_tools import *
 
@@ -88,9 +90,6 @@ def enframe(samples, winlen, winshift):
                 break
         i -= winshift
     return frame_matrix
-    #print(frame_matrix.shape)
-    #plt.pcolormesh(frame_matrix)
-    #plt.show()
     
 def preemp(matrix, p=0.97):
     """
@@ -224,13 +223,12 @@ def cepstrum(matrix, nceps):
     #plt.pcolormesh(ceps_matrix)
     #plt.show()
 
-def euclidian_distances(x, y):
+def euclidean_distances(x, y):
     '''
     input: x,y are utterences (not gone through mfcc)
     ouptut: matrix with euclidian distances 
 
     '''
-
     x_coefficient_matrix = mfcc(x)
     N = len(x_coefficient_matrix)
 
@@ -247,7 +245,7 @@ def euclidian_distances(x, y):
 
 
 
-def dtw(local_euclidean_matrix, dist):
+def dtw(x, y):
     """Dynamic Time Warping.
 
     Args:
@@ -263,13 +261,27 @@ def dtw(local_euclidean_matrix, dist):
 
     Note that you only need to define the first output for this exercise.
     """
+ 
+    local_euclidean_matrix = euclidean_distances(x, y)
+
     N = len(local_euclidean_matrix)
     M = len(local_euclidean_matrix[0])
     AccD = np.zeros((N, M))
-    for n in range(N):
-        for m in range(M):
+
+    AccD[0, 0] = local_euclidean_matrix[0, 0]
+    for i in range(1, N):
+        AccD[i, 0] = AccD[i-1, 0] + local_euclidean_matrix[i, 0]
+    for j in range(1, M): 
+        AccD[0, j] = AccD[0, j-1] + local_euclidean_matrix[0, j]
+
+    for n in range(1, N):
+        for m in range(1, M):
             AccD[n, m] = local_euclidean_matrix[n, m] + min(AccD[n-1, m], AccD[n-1, m-1], AccD[n, m-1])
-'''
+    
+    d = AccD[N-1, M-1]/(N+M)
+
+    return d, local_euclidean_matrix, AccD
+''' 
 def main():
     example = np.load('lab1_example.npz', allow_pickle=True)['example'].item()
     samplingRate = example['samplingrate']
@@ -281,6 +293,7 @@ def main():
     # 10 milliseconds in samples:  10 * 10^-3 s * 20 000 samples/s = 200 samples
 
     enframed = enframe(example['samples'], 400, 200)  # example['samples'].shape = (18432,)
+
     preemped = preemp(enframed)
 
     windowed = windowing(preemped)
@@ -289,13 +302,16 @@ def main():
 
     mel_speced = logMelSpectrum(transformed, samplingRate)
 
-    cepstrum(mel_speced, 13)
+    #cepstrum(mel_speced, 13)
 
-    plt.pcolormesh(example['lmfcc'])
+    plt.pcolormesh(mel_speced)
+    plt.title('mspec: Mel Filterbank')
+    plt.show()
+
+    plt.pcolormesh(example['mspec'])
     plt.show()
 
 '''
-
 def up_until_mel(utterance, mel_concatenation):
 
     enframed = enframe(utterance, 400, 200) 
@@ -381,14 +397,14 @@ def gmm_cluster(feature_matrix, data):
         plt.show()
         '''
 
-        
+def compute_global_distances(dataset):
+    D = np.zeros((len(dataset), len(dataset)))
+    for i in range(len(dataset)):
+        for j in range(len(dataset)):
+            d, locD, AccD = dtw(dataset[i]['samples'], dataset[j]['samples'])
+            D[i, j] = d
+    return D
 
-
-
-        
-
-            
-        
 
 def main():
     data = np.load('lab1_data.npz', allow_pickle=True)['data']
@@ -417,9 +433,27 @@ def main():
 
     #gmm_cluster(big_feature_array, data)    
 
-    local_euclidian = euclidian_distances(data[16]["samples"], data[17]["samples"])
+    
 
-    dtw(local_euclidian)
+    D = compute_global_distances(data)
+    tdigit_labels = tidigit2labels(data)
+    plt.pcolormesh(D)
+    plt.xticks(np.arange(44), tdigit_labels, rotation=90)
+    plt.yticks(np.arange(44), tdigit_labels)
+    plt.show()
+    
+    #link_D = linkage(D, method='complete')
+    #plt.figure()
+ 
+    #dendrogram(link_D, labels=tdigit_labels)
+    #plt.show()
+   #d, locD, AccD = dtw(data[16]['samples'], data[38]['samples'])
+
+    #plt.pcolormesh(AccD, cmap='jet')
+    #plt.xlabel('Word seven spoken by woman repetition a')
+    #plt.ylabel('Word seven spoken by man repetition a')
+   # plt.show()
+
     
    
 
@@ -449,7 +483,5 @@ def main():
     #plt.show()
 
 
-        
-        
 
 main()
